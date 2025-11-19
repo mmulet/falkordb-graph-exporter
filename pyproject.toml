@@ -1,0 +1,17 @@
+[project]
+name = "graph-exporter"
+version = "0.1.0"
+description = "Graph exporter project"
+readme = "README.md"
+license = { text = "Proprietary" }
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "falkordb==1.2.0",
+  "pandas==2.3.1",
+  "pytest==8.4.1",
+  "pytest-cov==6.2.1",
+  "coverage==7.10.2",
+  "build==1.3.0",
+  "twine==6.1.0",
+  "tqdm>=4.67.1",
+]

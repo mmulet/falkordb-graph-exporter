@@ -1,8 +1,10 @@
+# pyright: standard
 import argparse
 from collections import defaultdict
 
 from falkordb import FalkorDB
 import pandas as pd
+from tqdm import tqdm
 
 def export_graph(graph_name, host, port):
     # Connect to FalkorDB
@@ -10,10 +12,21 @@ def export_graph(graph_name, host, port):
     g = db.select_graph(graph_name)
 
     # Export Nodes by Label
-    nodes_result = g.ro_query("MATCH (n) RETURN ID(n), labels(n), properties(n)")
+    total_nodes = g.ro_query("MATCH (n) RETURN COUNT(n)").result_set[0][0]
+
+    print(f"🚀 Exporting {total_nodes} nodes from graph '{graph_name}'")
+    all_nodes = []
+    for skip_offset in tqdm(range(0, total_nodes, 10_000), desc="Exporting nodes"):
+        nodes_result = g.ro_query("""
+                                MATCH (n)
+                                RETURN ID(n), labels(n), properties(n)
+                                ORDER BY ID(n) SKIP $skip LIMIT 10000
+                                """, params={"skip": skip_offset})
+        all_nodes.extend(nodes_result.result_set)
+    print(f"ℹ️ Retrieved {len(all_nodes)} nodes from graph '{graph_name}'")
     nodes_by_label = defaultdict(list)
 
-    for record in nodes_result.result_set:
+    for record in all_nodes:
         node_id = record[0]
         labels = record[1]
         props = record[2] or {}
@@ -37,12 +50,23 @@ def export_graph(graph_name, host, port):
         print(f"✅ Exported {len(nodes)} nodes with label '{label}' to {filename}")
 
     # Export Edges by Type
-    edges_result = g.ro_query(
-        "MATCH (a)-[e]->(b) RETURN ID(e), TYPE(e), ID(a), ID(b), properties(e)"
-    )
-    edges_by_type = defaultdict(list)
 
-    for record in edges_result.result_set:
+    total_edges = g.ro_query("MATCH ()-[e]->() RETURN COUNT(e)").result_set[0][0]
+    print(f"\n🚀 Exporting {total_edges} edges from graph '{graph_name}'")
+    all_edges = []
+    for skip_offset in tqdm(range(0, total_edges, 10_000), desc="Exporting edges"):
+        edges_result = g.ro_query(
+            """
+            MATCH (a)-[e]->(b) 
+            RETURN ID(e), TYPE(e), ID(a), ID(b), properties(e)
+            ORDER BY ID(e) SKIP $skip LIMIT 10000
+            """,
+            params={"skip": skip_offset}
+        )
+        all_edges.extend(edges_result.result_set)
+    print(f"ℹ️ Retrieved {len(all_edges)} edges from graph '{graph_name  }'")
+    edges_by_type = defaultdict(list)
+    for record in all_edges:
         edge_id = record[0]
         edge_type = record[1]
         from_id = record[2]
