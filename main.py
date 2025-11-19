@@ -5,6 +5,7 @@ from collections import defaultdict
 from falkordb import FalkorDB
 import pandas as pd
 from tqdm import tqdm
+from redis.exceptions import ResponseError
 
 def export_graph(graph_name, host, port):
     # Connect to FalkorDB
@@ -17,12 +18,23 @@ def export_graph(graph_name, host, port):
     print(f"🚀 Exporting {total_nodes} nodes from graph '{graph_name}'")
     all_nodes = []
     for skip_offset in tqdm(range(0, total_nodes, 10_000), desc="Exporting nodes"):
-        nodes_result = g.ro_query("""
-                                MATCH (n)
-                                RETURN ID(n), labels(n), properties(n)
-                                ORDER BY ID(n) SKIP $skip LIMIT 10000
-                                """, params={"skip": skip_offset})
-        all_nodes.extend(nodes_result.result_set)
+        success = False
+        for _ in range(15):  # Retry up to 15 times
+            try:
+                nodes_result = g.ro_query("""
+                                        MATCH (n)
+                                        WHERE ID(n) > $skip and ID(n) <= $skip + 10000
+                                        RETURN ID(n), labels(n), properties(n)
+                                        ORDER BY ID(n)
+                                        """, params={"skip": skip_offset})
+                all_nodes.extend(nodes_result.result_set)
+                success = True
+                break  # Break out of retry loop on success
+            except ResponseError as e   :
+                print(f"Error retrieving nodes: {e}, retrying...")
+        if not success:
+            raise Exception("Failed to retrieve nodes after 15 attempts")
+            
     print(f"ℹ️ Retrieved {len(all_nodes)} nodes from graph '{graph_name}'")
     nodes_by_label = defaultdict(list)
 
@@ -55,15 +67,25 @@ def export_graph(graph_name, host, port):
     print(f"\n🚀 Exporting {total_edges} edges from graph '{graph_name}'")
     all_edges = []
     for skip_offset in tqdm(range(0, total_edges, 10_000), desc="Exporting edges"):
-        edges_result = g.ro_query(
-            """
-            MATCH (a)-[e]->(b) 
-            RETURN ID(e), TYPE(e), ID(a), ID(b), properties(e)
-            ORDER BY ID(e) SKIP $skip LIMIT 10000
-            """,
-            params={"skip": skip_offset}
-        )
-        all_edges.extend(edges_result.result_set)
+        success = False
+        for _ in range(15):  # Retry up to 15 times
+            try:
+                edges_result = g.ro_query(
+                    """
+                    MATCH (a)-[e]->(b)
+                    WHERE ID(e) > $skip and ID(e) <= $skip + 10000
+                    RETURN ID(e), TYPE(e), ID(a), ID(b), properties(e)
+                    ORDER BY ID(e)
+                    """,
+                    params={"skip": skip_offset}
+                )
+                all_edges.extend(edges_result.result_set)
+                success = True
+                break  # Break out of retry loop on success
+            except ResponseError as e:
+                print(f"Error retrieving edges: {e}, retrying...")
+        if not success:
+            raise Exception("Failed to retrieve edges after 15 attempts")
     print(f"ℹ️ Retrieved {len(all_edges)} edges from graph '{graph_name  }'")
     edges_by_type = defaultdict(list)
     for record in all_edges:
