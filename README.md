@@ -8,6 +8,18 @@
 
 # FalkorDB Graph Exporter
 
+
+## mmulet instructions
+
+```shell
+uv sync
+```
+```shell
+uv run main.py AISafetyIntervention
+```
+
+
+
 [![Try Free](https://img.shields.io/badge/Try%20Free-FalkorDB%20Cloud-FF8101?labelColor=FDE900&style=for-the-badge&link=https://app.falkordb.cloud)](https://app.falkordb.cloud)
 
 A command-line tool to export FalkorDB graph data to CSV files. This tool connects to a FalkorDB instance and exports both nodes and edges to separate CSV files for analysis, backup, or data migration purposes.
