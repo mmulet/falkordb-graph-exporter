@@ -26,7 +26,9 @@ def export_graph(graph_name, host, port):
                                         WHERE ID(n) > $skip and ID(n) <= $skip + 10000
                                         RETURN ID(n), labels(n), properties(n)
                                         ORDER BY ID(n)
-                                        """, params={"skip": skip_offset})
+                                        """, params={"skip": skip_offset},
+                                          timeout=60000
+                                         )
                 all_nodes.extend(nodes_result.result_set)
                 success = True
                 break  # Break out of retry loop on success
@@ -77,7 +79,8 @@ def export_graph(graph_name, host, port):
                     RETURN ID(e), TYPE(e), ID(a), ID(b), properties(e)
                     ORDER BY ID(e)
                     """,
-                    params={"skip": skip_offset}
+                    params={"skip": skip_offset},
+                    timeout=60000
                 )
                 all_edges.extend(edges_result.result_set)
                 success = True
